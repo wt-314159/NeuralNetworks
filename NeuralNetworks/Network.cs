@@ -19,6 +19,38 @@ namespace NeuralNetworks
             }
         }
 
+        public void Learn(DataPoint[] trainingData, double learnRate)
+        {
+            double h = 0.0001;
+            double originalCost = Cost(trainingData);
+
+            foreach (Layer layer in Layers)
+            {
+                // Calculate cost gradient
+                Parallel.For(0, layer.NodesIn, nodeIn =>
+                {
+                    Parallel.For(0, layer.Nodes, node =>
+                    {
+                        layer.Weights[nodeIn, node] += h;
+                        double deltaCost = Cost(trainingData) - originalCost;
+                        layer.Weights[nodeIn, node] -= h;
+                        layer.WeightGradients[nodeIn, node] = deltaCost / h;
+                    });
+                });
+
+                // Calculate bias gradient
+                Parallel.For(0, layer.Biases.Length, bias =>
+                {
+                    layer.Biases[bias] += h;
+                    double deltaCost = Cost(trainingData) - originalCost;
+                    layer.Biases[bias] -= h;
+                    layer.BiasGradients[bias] = deltaCost / h;
+                });
+
+                layer.ApplyGradients(learnRate);
+            }
+        }
+
         public double[] CalculateOutputs(double[] inputs)
         {
             foreach (var layer in Layers)
@@ -41,7 +73,7 @@ namespace NeuralNetworks
         }
 
         public double Cost(DataPoint[] dataPoints)
-            => dataPoints.Select(x => Cost(x)).Sum();
+            => dataPoints.Select(x => Cost(x)).Average();
 
         public static double LayerCost(double[] outputs, double[] expectedOutputs)
         {
