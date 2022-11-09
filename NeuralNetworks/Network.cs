@@ -19,8 +19,13 @@ namespace NeuralNetworks
             }
         }
 
-        public void Learn(DataPoint[] trainingData, double learnRate)
+        public void LearnSlow(DataPoint[] trainingData, double learnRate)
         {
+            // DO NOT USE - just to show the slow way of updating,
+            // we have to calculate the cost for every single weight
+            // and bias, which quickly becomes extremely slow
+            throw new NotSupportedException($"No longer used or supported, " +
+                $"use the {nameof(Learn)}() method");
             double h = 0.0001;
             double originalCost = Cost(trainingData);
 
@@ -48,6 +53,38 @@ namespace NeuralNetworks
                 });
 
                 layer.ApplyGradients(learnRate);
+            }
+        }
+
+        public void Learn(DataPoint[] dataPoints, double learnRate)
+        {
+            // Update the gradients for each data point
+            foreach (var dataPoint in dataPoints)
+            {
+                UpdateAllGradients(dataPoint);
+            }
+
+            // Average the gradients and apply
+            ApplyAllGradients(learnRate / dataPoints.Length);
+
+            // Clear all the gradients ready for next learning batch
+            ClearAllGradients();
+        }
+
+        public void UpdateAllGradients(DataPoint dataPoint)
+        {
+            // Update gradients using backpropagation algorithm
+            // Calculate gradients for nodes of last layer first
+            CalculateOutputs(dataPoint.Inputs);
+            double[] nodeValues = Layers.Last().CalculateOutputNodeValues(dataPoint.ExpectedOutputs);
+            Layers.Last().UpdateGradients(nodeValues);
+
+            // Then work backwards through all the other layers
+            for (int i = Layers.Length - 2; i >= 0; i--)
+            {
+                var hiddenLayer = Layers[i];
+                nodeValues = hiddenLayer.CalculateHiddenLayerNodeValues(Layers[i + 1], nodeValues);
+                hiddenLayer.UpdateGradients(nodeValues);
             }
         }
 
@@ -88,6 +125,19 @@ namespace NeuralNetworks
         private int IndexOfMaxValue(IList<double> values)
         {
             return values.IndexOf(values.Max());
+        }
+
+        private void ApplyAllGradients(double learnRate)
+        {
+            Parallel.ForEach(Layers, layer => layer.ApplyGradients(learnRate));
+        }
+
+        private void ClearAllGradients()
+        {
+            foreach (var layer in Layers)
+            {
+                layer.ClearGradients();
+            }
         }
     }
 }
